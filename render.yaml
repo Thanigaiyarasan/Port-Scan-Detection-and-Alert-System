@@ -12,4 +12,4 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: CLIENT_ORIGINS
-        value: https://port-scan-detection-and-alert-system.vercel.app,http://localhost:5173
+        value: https://port-scan-detection-and-alert-syste.vercel.app,https://port-scan-detection-and-alert-system.vercel.app,http://localhost:5173

@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { isAllowedOrigin } from './cors.js';
 
 test('allows the production frontend, supported preview deployments, and local development', () => {
+  assert.equal(isAllowedOrigin('https://port-scan-detection-and-alert-syste.vercel.app'), true);
   assert.equal(isAllowedOrigin('https://port-scan-detection-and-alert-system.vercel.app'), true);
+  assert.equal(isAllowedOrigin('https://port-scan-detection-and-alert-syste-git-fix-cors-acme.vercel.app'), true);
   assert.equal(isAllowedOrigin('https://port-scan-detection-and-alert-system-git-fix-cors-acme.vercel.app'), true);
   assert.equal(isAllowedOrigin('http://localhost:5173'), true);
 });

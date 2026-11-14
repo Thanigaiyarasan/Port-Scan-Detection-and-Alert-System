@@ -77,7 +77,7 @@ Set these in `backend/.env` locally and in Render's service environment:
 | `CLIENT_ORIGINS` | Recommended | Comma-separated frontend origins. Include the production Vercel origin and any additional trusted origins. |
 | `CLIENT_ORIGIN` | Optional legacy setting | Also accepted for compatibility; `CLIENT_ORIGINS` is preferred. |
 
-`backend/.env.example` provides safe placeholders. The production Vercel origin and `http://localhost:5173` are supported by the CORS policy. Project preview hosts with the `port-scan-detection-and-alert-system-` prefix on `vercel.app` are also allowed. Keep any configured origin list restricted to trusted applications.
+`backend/.env.example` provides safe placeholders. The active Vercel site currently uses `https://port-scan-detection-and-alert-syste.vercel.app` (without the final `m`); the canonical `...-system.vercel.app` origin is also supported. Local development at `http://localhost:5173` and preview hosts with either project prefix are supported. Keep any configured origin list restricted to trusted applications.
 
 ### Frontend
 

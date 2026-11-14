@@ -1,5 +1,11 @@
-const PRODUCTION_ORIGIN = 'https://port-scan-detection-and-alert-system.vercel.app';
-const PREVIEW_HOST_PREFIX = 'port-scan-detection-and-alert-system-';
+const PRODUCTION_ORIGINS = [
+  'https://port-scan-detection-and-alert-syste.vercel.app',
+  'https://port-scan-detection-and-alert-system.vercel.app'
+];
+const PREVIEW_HOST_PREFIXES = [
+  'port-scan-detection-and-alert-syste-',
+  'port-scan-detection-and-alert-system-'
+];
 
 function normalizeOrigin(value) {
   try {
@@ -17,7 +23,7 @@ const configuredOrigins = [
   ...(process.env.CLIENT_ORIGIN || '').split(',')
 ].map(normalizeOrigin).filter(Boolean);
 const allowedOrigins = new Set([
-  PRODUCTION_ORIGIN,
+  ...PRODUCTION_ORIGINS,
   'http://localhost:5173',
   ...configuredOrigins
 ]);
@@ -31,7 +37,7 @@ export function isAllowedOrigin(origin) {
   try {
     const { hostname, protocol, port } = new URL(normalized);
     return protocol === 'https:' && !port && hostname.endsWith('.vercel.app') &&
-      hostname.startsWith(PREVIEW_HOST_PREFIX);
+      PREVIEW_HOST_PREFIXES.some(prefix => hostname.startsWith(prefix));
   } catch {
     return false;
   }
