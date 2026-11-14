@@ -44,6 +44,10 @@ export default function useMonitoring() {
     socket.on('simulation:status', payload => setStatus(payload));
     socket.on('simulation:error', payload => setError(payload.message));
     socket.on('data:cleared', update);
+    socket.on('connect', () => mounted && setError(''));
+    socket.on('disconnect', reason => {
+      if (mounted && reason !== 'io client disconnect') setError('Live updates disconnected. Reconnecting to the monitoring API…');
+    });
     socket.on('connect_error', () => mounted && setError('Cannot reach the monitoring API. Check the backend and MongoDB connection.'));
     const timer = window.setInterval(() => refresh().catch(error => mounted && setError(error.message)), 15000);
     return () => {
@@ -54,9 +58,7 @@ export default function useMonitoring() {
     };
   }, [refresh]);
 
-  const refreshConnections = useCallback(async (query = '') => {
-    setConnections(await api(`/connections?limit=100${query}`));
-  }, []);
+  const fetchConnections = useCallback(query => api(`/connections?${query}`), []);
 
-  return { stats, analytics, alerts, setAlerts, connections, refreshConnections, status, loading, error, setError, refresh };
+  return { stats, analytics, alerts, setAlerts, connections, fetchConnections, status, loading, error, setError, refresh };
 }

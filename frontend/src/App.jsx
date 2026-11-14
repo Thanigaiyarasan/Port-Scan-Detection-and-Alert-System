@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowDownToLine, ArrowRight, Bell, Check, ChevronDown, ChevronLeft, ChevronRight,
   CircleHelp, Clock3, Database, Download, Ellipsis, Filter, Gauge, Globe2, Menu, Pause, Play, Plus,
@@ -52,7 +52,7 @@ function ConnectionTable({ items, dense = false }) {
 
 function App() {
   const monitoring = useMonitoring();
-  const { stats, analytics, alerts, setAlerts, connections, refreshConnections, status, loading, error, setError, refresh } = monitoring;
+  const { stats, analytics, alerts, setAlerts, connections, fetchConnections, status, loading, error, setError, refresh } = monitoring;
   const [page, setPage] = useState('overview');
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -63,23 +63,33 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [connectionFilters, setConnectionFilters] = useState({ search: '', ip: '', port: '', status: '' });
   const [connectionPage, setConnectionPage] = useState(1);
+  const [connectionPageData, setConnectionPageData] = useState({ items: [], total: 0, page: 1, pages: 1 });
   const [alertFilters, setAlertFilters] = useState({ search: '', severity: 'ALL', state: 'ALL' });
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showSimulator, setShowSimulator] = useState(true);
 
   const title = navigationTitles[page];
   const ports = useMemo(() => portsText.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 1 && value <= 65535), [portsText]);
-  const filteredConnections = useMemo(() => {
-    const filtered = connections.items.filter(item => {
-      const query = connectionFilters.search.toLowerCase();
-      return (!query || `${item.sourceIp} ${item.destinationIp} ${item.destinationPort} ${item.protocol} ${item.dfaState}`.toLowerCase().includes(query)) &&
-        (!connectionFilters.ip || item.sourceIp.includes(connectionFilters.ip)) &&
-        (!connectionFilters.port || String(item.destinationPort).includes(connectionFilters.port)) &&
-        (!connectionFilters.status || item.status === connectionFilters.status);
-    });
-    const pageSize = 10;
-    return { items: filtered.slice((connectionPage - 1) * pageSize, connectionPage * pageSize), totalPages: Math.max(1, Math.ceil(filtered.length / pageSize)), total: filtered.length };
-  }, [connections.items, connectionFilters, connectionPage]);
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      const params = new URLSearchParams({ page: String(connectionPage), limit: '10' });
+      if (connectionFilters.search) params.set('search', connectionFilters.search);
+      if (connectionFilters.ip) params.set('sourceIp', connectionFilters.ip);
+      if (connectionFilters.port) params.set('port', connectionFilters.port);
+      if (connectionFilters.status) params.set('status', connectionFilters.status);
+      try {
+        const result = await fetchConnections(params.toString());
+        if (active) setConnectionPageData(result);
+      } catch (requestError) {
+        if (active) setError(requestError.message);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [connectionFilters, connectionPage, fetchConnections, setError]);
   const filteredAlerts = useMemo(() => alerts.filter(alert => {
     const query = alertFilters.search.toLowerCase();
     return (!query || `${alert.sourceIp} ${alert.attackType} ${alert.description}`.toLowerCase().includes(query)) &&
@@ -155,8 +165,8 @@ function App() {
     intervalMs={intervalMs} setIntervalMs={setIntervalMs} status={status} busy={busy} setPage={setPage}
     onStart={handleStart} onStop={handleStop} onClear={clearData} currentState={currentState}
   /> : page === 'connections' ? <ConnectionsPage
-    items={filteredConnections.items} total={filteredConnections.total} page={connectionPage}
-    totalPages={filteredConnections.totalPages} filters={connectionFilters} setFilters={setConnectionFilters}
+    items={connectionPageData.items} total={connectionPageData.total} page={connectionPage}
+    totalPages={connectionPageData.pages} filters={connectionFilters} setFilters={setConnectionFilters}
     onSearch={connectionSearch} onExport={exportCsv} onPage={setConnectionPage} sourceIpFilter={sourceOptions}
   /> : page === 'alerts' ? <AlertsPage
     alerts={filteredAlerts} allAlerts={alerts} filters={alertFilters} setFilters={setAlertFilters} onSelect={setSelectedAlert}

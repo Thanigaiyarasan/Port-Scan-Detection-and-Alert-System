@@ -9,6 +9,6 @@ const securityAlertSchema = new mongoose.Schema({
   description: { type: String, required: true },
   resolved: { type: Boolean, default: false },
   timestamp: { type: Date, default: Date.now, index: true }
-}, { timestamps: true });
+}, { timestamps: true, bufferCommands: false });
 
 export default mongoose.model('SecurityAlert', securityAlertSchema);

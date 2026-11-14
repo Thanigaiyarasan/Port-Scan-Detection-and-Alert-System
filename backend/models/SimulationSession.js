@@ -9,6 +9,6 @@ const simulationSessionSchema = new mongoose.Schema({
   startedAt: { type: Date, default: Date.now },
   stoppedAt: { type: Date, default: null },
   attempts: { type: Number, default: 0 }
-}, { timestamps: true });
+}, { timestamps: true, bufferCommands: false });
 
 export default mongoose.model('SimulationSession', simulationSessionSchema);

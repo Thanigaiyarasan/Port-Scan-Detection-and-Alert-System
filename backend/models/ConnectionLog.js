@@ -21,6 +21,6 @@ const connectionLogSchema = new mongoose.Schema({
   attackType: { type: String, default: null },
   dfaState: { type: String, enum: ['Q0', 'Q1', 'Q2', 'Q3', 'Q4'], required: true },
   dfaTransitions: { type: [transitionSchema], default: [] }
-});
+}, { bufferCommands: false });
 
 export default mongoose.model('ConnectionLog', connectionLogSchema);

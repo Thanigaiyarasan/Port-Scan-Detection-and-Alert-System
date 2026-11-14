@@ -11,9 +11,24 @@ const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, r
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 router.get('/connections', asyncRoute(async (req, res) => {
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  const requestedPage = Number(req.query.page);
+  const requestedLimit = Number(req.query.limit);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(100, requestedLimit) : 50;
   const query = {};
+  if (req.query.search) {
+    const search = String(req.query.search).slice(0, 100);
+    const expression = new RegExp(escapeRegex(search), 'i');
+    query.$or = [
+      { sourceIp: expression },
+      { destinationIp: expression },
+      { protocol: expression },
+      { dfaState: expression }
+    ];
+    if (/^\d+$/.test(search) && Number(search) >= 1 && Number(search) <= 65535) {
+      query.$or.push({ destinationPort: Number(search) });
+    }
+  }
   if (req.query.sourceIp) {
     if (!isPrivateIPv4(String(req.query.sourceIp))) return res.status(400).json({ error: 'sourceIp must be a private IPv4 address.' });
     query.sourceIp = String(req.query.sourceIp);
@@ -33,7 +48,7 @@ router.get('/connections', asyncRoute(async (req, res) => {
     ConnectionLog.find(query).sort({ timestamp: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     ConnectionLog.countDocuments(query)
   ]);
-  res.json({ items, total, page, pages: Math.ceil(total / limit) });
+  res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
 }));
 
 router.get('/connections/stats', asyncRoute(async (_req, res) => res.json(await getStats())));

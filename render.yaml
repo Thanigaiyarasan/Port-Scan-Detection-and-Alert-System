@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: port-scan-detection-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_ORIGINS
+        value: https://port-scan-detection-and-alert-system.vercel.app,http://localhost:5173

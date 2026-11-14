@@ -5,113 +5,65 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import api from './routes/api.js';
+import { corsOptions } from './services/cors.js';
 
 const app = express();
 const server = http.createServer(app);
-
-// Allowed frontend origins
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://port-scan-detection-and-alert-system.vercel.app',
-  ...(process.env.CLIENT_ORIGIN || '')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean)
-];
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.error('Blocked CORS origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-// Socket.io configuration
-const io = new Server(server, {
-  cors: corsOptions
-});
-
+const io = new Server(server, { cors: corsOptions });
 app.set('io', io);
 
-// Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '100kb' }));
 
-// Health check
 app.get('/api/health', (_req, res) => {
-  res.json({
+  const connected = mongoose.connection.readyState === 1;
+  res.status(connected ? 200 : 503).json({
     status: 'ok',
-    database:
-      mongoose.connection.readyState === 1
-        ? 'connected'
-        : 'disconnected'
+    database: connected ? 'connected' : 'disconnected'
   });
 });
 
-// API routes
 app.use('/api', api);
+app.use((_req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
 
-// Error handling
 app.use((error, _req, res, _next) => {
-  console.error(error);
-
   if (error instanceof SyntaxError && 'body' in error) {
-    return res.status(400).json({
-      error: 'Request body must contain valid JSON.'
-    });
+    return res.status(400).json({ error: 'Request body must contain valid JSON.' });
   }
-
   if (error.message === 'Not allowed by CORS') {
-    return res.status(403).json({
-      error: 'Origin not allowed.'
-    });
+    return res.status(403).json({ error: 'Origin not allowed.' });
   }
-
-  if (error.name === 'CastError') {
-    return res.status(400).json({
-      error: 'Invalid identifier or value.'
-    });
+  if (error.name === 'CastError') return res.status(400).json({ error: 'Invalid identifier or value.' });
+  if (error.name === 'ValidationError') return res.status(400).json({ error: 'Request data failed validation.' });
+  if (mongoose.connection.readyState !== 1 || error.name === 'MongoServerSelectionError') {
+    return res.status(503).json({ error: 'Database is temporarily unavailable.' });
   }
-
-  if (error.name === 'ValidationError') {
-    return res.status(400).json({
-      error: 'Request data failed validation.'
-    });
-  }
-
-  res.status(500).json({
-    error: 'The request could not be completed.'
-  });
+  console.error('Request failed:', error.message);
+  return res.status(500).json({ error: 'The request could not be completed.' });
 });
 
-// Socket connection
 io.on('connection', socket => {
-  console.log('Client connected:', socket.id);
-
-  socket.emit('server:ready', {
-    connected: true
-  });
+  console.log('Socket client connected:', socket.id);
+  socket.emit('server:ready', { connected: true });
+  socket.on('disconnect', reason => console.log('Socket client disconnected:', reason));
 });
 
-// Start server and connect MongoDB
 const port = Number(process.env.PORT) || 4000;
+const mongoUri = process.env.MONGODB_URI;
 
-try {
-  await mongoose.connect(process.env.MONGODB_URI);
+if (!mongoUri) console.error('MONGODB_URI is not configured; database-backed requests will be unavailable.');
+mongoose.set('bufferCommands', false);
+mongoose.connection.on('connected', () => console.log('MongoDB connected.'));
+mongoose.connection.on('disconnected', () => console.warn('MongoDB disconnected.'));
+mongoose.connection.on('error', error => console.error('MongoDB connection error:', error.message));
 
-  console.log('MongoDB Connected Successfully');
+server.listen(port, () => console.log(`Port Scan Detection API listening on port ${port}`));
 
-  server.listen(port, () => {
-    console.log(`Port Scan Detection API listening on port ${port}`);
+if (mongoUri) {
+  const connectToDatabase = () => mongoose.connect(mongoUri).catch(error => {
+    console.error('MongoDB connection failed; retrying in 10 seconds:', error.message);
+    const retry = setTimeout(connectToDatabase, 10_000);
+    retry.unref();
   });
-
-} catch (error) {
-  console.error('MongoDB connection failed:', error.message);
-  process.exit(1);
+  connectToDatabase();
 }
